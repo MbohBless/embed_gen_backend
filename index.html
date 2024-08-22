@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MongoDB Atlas Import</title>
+</head>
+<body>
+    <h1>Import 📚 data into your <span style="color: #4DB33D;">MongoDB Atlas Database</span></h1>
+    <form id="mongoForm">
+        <label for="connectionString">Connection string:</label>
+        <input type="text" id="connectionString" name="connectionString" required>
+        <button type="submit">Submit</button>
+    </form>
+
+    <script>
+        document.getElementById("mongoForm").addEventListener("submit", async function(event) {
+            event.preventDefault(); // Prevent the default form submission
+
+            const connectionString = document.getElementById("connectionString").value;
+
+            try {
+                const response = await fetch('/api/import-data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ connectionString })
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    alert('Data imported successfully!');
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('An error occurred: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
