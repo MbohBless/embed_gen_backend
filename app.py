@@ -1,10 +1,13 @@
-from tasks import generate_text_embeddings, flask_app
+from tasks import generate_text_embeddings, flask_app, populate_books_data
 from celery.result import AsyncResult
-from flask import request, jsonify
+from flask import request, jsonify,render_template
 from pymongo import MongoClient
 import json
 from datetime import datetime
 from bson import ObjectId
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime):
@@ -12,6 +15,10 @@ class CustomJSONEncoder(json.JSONEncoder):
         if isinstance(obj, ObjectId):
             return str(obj)
         return super().default(obj)
+    
+@flask_app.route("/", methods=["GET"])
+def index():
+    return render_template("index.html")
 
 
 @flask_app.route("/api/embeddings", methods=["GET"])
@@ -44,23 +51,17 @@ def embed_test() -> dict[str, object]:
 def import_data():
     try:
         data = request.get_json()
-        connection_string = data["connection_string"]
+        logging.info(data)
+        connection_string = data["connectionString"]
         if not connection_string:
             return jsonify({
                 "status": "error",
                 "message": "Connection string is required"
             }), 400
-        collections = ["authors", "users", "reviews", "issueDetails", "books"]
-        database = "library"
-        db = MongoClient(connection_string)[database]
-        for collection in collections:
-            with open(f"{collection}.json") as f:
-                collection_data = json.load(f)
-                db[collection].insert_many(collection_data)
-                db[collection].create_index("_id")
+        task = populate_books_data.delay(connection_string)
         return jsonify({
             "status": "success",
-            "message": "Data imported successfully"
+            "message": "Import in progress"
         })
     except Exception as e:
         return jsonify({
@@ -73,7 +74,7 @@ def import_data():
 def save_data():
     try:
         collections = ["authors", "users", "reviews", "issueDetails"]
-        connection_string = "mongodb+srv://mpearlnc:Mbohanna.8@cluster0.75qnmg0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+        connection_string = "Place your connection string here"
         if not connection_string:
             return jsonify({
                 "status": "error",
@@ -85,7 +86,7 @@ def save_data():
         # getting all the data from the book collection
         data = list(db[base_collection].find())
         formatted_data = []
-
+        # changing the emneddings dimensions from 1536 to 384 from open source model
         for item in data:
             text = item["longTitle"]+"\n\n"+item["synopsis"]
             formatted_data.append({
@@ -111,7 +112,4 @@ def save_data():
 
 
 if __name__ == "__main__":
-    flask_app.run(debug=True)
-
-
-#
+    flask_app.run(debug=False)
